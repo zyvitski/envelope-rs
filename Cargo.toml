@@ -1,6 +1,7 @@
 [package]
-name = "Envelope"
+name = "envelope"
 version = "0.1.0"
 authors = ["Alex Zywicki <alexander.zywicki@gmail.com>"]
 
 [dependencies]
+num="*"

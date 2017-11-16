@@ -1,4 +1,8 @@
 #![allow(dead_code)]
+
+extern crate num;
+use num::{Float, clamp, One, Zero, NumCast};
+
 #[derive(Debug)]
 enum AdsrState {
     Ready,
@@ -10,52 +14,53 @@ enum AdsrState {
 }
 
 #[derive(Debug)]
-pub struct Envelope {
-    pub attack: f64,
-    pub decay: f64,
-    pub sustain: f64,
-    pub release: f64,
-    pub initial: f64,
-    pub peak: f64,
-    end: f64,
+pub struct Envelope<F>
+where
+    F: Float,
+{
+    attack: F,
+    decay: F,
+    sustain: F,
+    release: F,
+    initial: F,
+    peak: F,
+    end: F,
     state: AdsrState,
-    slope: f64,
-    value: f64,
+    slope: F,
+    value: F,
     note_is_on: bool,
-    attack_slope: f64,
-    decay_slope: f64,
-    release_slope: f64,
+    attack_slope: F,
+    decay_slope: F,
+    release_slope: F,
 }
 
-impl Envelope {
-    pub fn new(
-        attack: f64,
-        decay: f64,
-        sustain: f64,
-        release: f64,
-        initial: f64,
-        peak: f64,
-        end: f64,
-    ) -> Self {
+impl<F> Envelope<F>
+where
+    F: Float,
+{
+    pub fn new(attack: F, decay: F, sustain: F, release: F, initial: F, peak: F, end: F) -> Self {
+        let zero = Zero::zero();
+        let one = One::one();
+
         Envelope {
-            attack: make_nonzero(attack),
-            decay: make_nonzero(decay),
-            sustain: bound_0_1(sustain),
-            release: make_nonzero(release),
-            initial: bound_0_1(initial),
-            peak: bound_0_1(peak),
-            end: bound_0_1(end),
+            attack: nonzero(attack),
+            decay: nonzero(decay),
+            sustain: clamp(sustain, zero, one),
+            release: nonzero(release),
+            initial: clamp(initial, zero, one),
+            peak: clamp(peak, zero, one),
+            end: clamp(end, zero, one),
             state: AdsrState::Ready,
-            slope: 0.0,
+            slope: zero,
             value: initial,
             note_is_on: false,
-            attack_slope: 0.0,
-            decay_slope: 0.0,
-            release_slope: 0.0,
+            attack_slope: zero,
+            decay_slope: zero,
+            release_slope: zero,
         }
     }
     pub fn reset(&mut self) {
-        self.slope = 0.0;
+        self.slope = Zero::zero();
         self.value = self.initial;
         self.note_is_on = false;
         self.state = AdsrState::Ready;
@@ -69,45 +74,45 @@ impl Envelope {
         self.state = AdsrState::Release;
         self.slope = self.calc_release_slope();
     }
-    pub fn set_attack(&mut self, value: f64) {
-        self.attack = make_nonzero(value);
+    pub fn set_attack(&mut self, value: F) {
+        self.attack = nonzero(value);
         self.attack_slope = self.calc_attack_slope();
         if let AdsrState::Attack = self.state {
             self.slope = self.attack_slope;
         }
     }
-    pub fn set_decay(&mut self, value: f64) {
-        self.decay = make_nonzero(value);
+    pub fn set_decay(&mut self, value: F) {
+        self.decay = nonzero(value);
         self.decay_slope = self.calc_decay_slope();
         if let AdsrState::Decay = self.state {
             self.slope = self.decay_slope;
         }
     }
-    pub fn set_sustain(&mut self, value: f64) {
-        self.sustain = bound_0_1(value);
+    pub fn set_sustain(&mut self, value: F) {
+        self.sustain = clamp(value, Zero::zero(), One::one());
     }
-    pub fn set_release(&mut self, value: f64) {
-        self.release = make_nonzero(value);
+    pub fn set_release(&mut self, value: F) {
+        self.release = nonzero(value);
         self.release_slope = self.calc_release_slope();
         if let AdsrState::Release = self.state {
             self.slope = self.release_slope;
         }
     }
 
-    pub fn set_initial(&mut self, value: f64) {
-        self.initial = bound_0_1(value);
+    pub fn set_initial(&mut self, value: F) {
+        self.initial = clamp(value, Zero::zero(), One::one());
         if let AdsrState::Attack = self.state {
             self.attack_slope = self.calc_attack_slope();
         }
     }
-    pub fn set_peak(&mut self, value: f64) {
-        self.peak = bound_0_1(value);
+    pub fn set_peak(&mut self, value: F) {
+        self.peak = clamp(value, Zero::zero(), One::one());
         if let AdsrState::Decay = self.state {
             self.decay_slope = self.calc_decay_slope();
         }
     }
-    pub fn set_end(&mut self, value: f64) {
-        self.end = bound_0_1(value);
+    pub fn set_end(&mut self, value: F) {
+        self.end = clamp(value, Zero::zero(), One::one());
         if let AdsrState::Release = self.state {
             self.release_slope = self.calc_release_slope();
         }
@@ -121,39 +126,33 @@ impl Envelope {
         }
     }
 
-    fn calc_attack_slope(&mut self) -> f64 {
+    fn calc_attack_slope(&mut self) -> F {
         (self.peak - self.initial) / self.attack
     }
-    fn calc_decay_slope(&mut self) -> f64 {
+    fn calc_decay_slope(&mut self) -> F {
         (self.sustain - self.peak) / self.decay
     }
-    fn calc_release_slope(&mut self) -> f64 {
+    fn calc_release_slope(&mut self) -> F {
         (self.end - self.sustain) / self.release
     }
 }
 
-fn make_nonzero(value: f64) -> f64 {
-    use std::f64::MIN_POSITIVE;
-    if value <= MIN_POSITIVE {
-        MIN_POSITIVE
-    } else {
-        value
-    }
+fn nonzero<F: Float>(value: F) -> F {
+    use std::f64::{MIN_POSITIVE, MAX};
+    clamp(
+        value,
+        NumCast::from(MIN_POSITIVE).unwrap(),
+        NumCast::from(MAX).unwrap(),
+    )
 }
 
-fn bound_0_1(value: f64) -> f64 {
-    if value < 0.0 {
-        0.0
-    } else if value > 1.0 {
-        1.0
-    } else {
-        value
-    }
-}
-
-impl Iterator for Envelope {
-    type Item = f64;
+impl<F> Iterator for Envelope<F>
+where
+    F: Float,
+{
+    type Item = F;
     fn next(&mut self) -> Option<Self::Item> {
+        let zero = Zero::zero();
         match self.state {
             AdsrState::Ready => {
                 if self.note_is_on {
@@ -174,7 +173,7 @@ impl Iterator for Envelope {
                     (self.peak <= self.sustain && self.value >= self.sustain)
                 {
                     self.state = AdsrState::Sustain;
-                    self.slope = 0.0;
+                    self.slope = zero;
                 }
             }
             AdsrState::Sustain => {
@@ -190,7 +189,7 @@ impl Iterator for Envelope {
                     (self.end <= self.sustain && self.value <= self.end)
                 {
                     self.state = AdsrState::Done;
-                    self.slope = 0.0;
+                    self.slope = zero;
                 }
             }
             AdsrState::Done => self.reset(),
@@ -198,13 +197,13 @@ impl Iterator for Envelope {
         let mut out = None;
         if let AdsrState::Release = self.state {
             out = Some(self.value);
-            self.value += self.slope;
+            self.value = self.value + self.slope;
         } else if self.note_is_on {
             out = Some(self.value);
-            self.value += self.slope;
+            self.value = self.value + self.slope;
         }
-        if self.value < 0.0 {
-            self.value = 0.0
+        if self.value < zero {
+            self.value = zero;
         }
         out
     }
