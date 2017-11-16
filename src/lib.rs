@@ -5,3 +5,5 @@ mod util;
 pub use envelope::*;
 pub use adsr::*;
 pub use util::*;
+
+//TODO: Docs
