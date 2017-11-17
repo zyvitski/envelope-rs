@@ -1,12 +1,12 @@
 use envelope::{Envelope, EnvelopeState};
-use util::{nonzero, normal};
-use num::{Float, Zero};
+use util::{NonZero, Normal};
+use num::{Num, Signed, Zero};
 use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Adsr<F>
 where
-    F: Float,
+    F: Num + Signed + PartialOrd + NonZero + Normal + Copy,
 {
     attack: F,
     decay: F,
@@ -26,18 +26,18 @@ where
 
 impl<F> Adsr<F>
 where
-    F: Float,
+    F: Num + Signed + PartialOrd + NonZero + Normal + Copy,
 {
     pub fn new(attack: F, decay: F, sustain: F, release: F, initial: F, peak: F, end: F) -> Self {
         let zero: F = Zero::zero();
         Adsr {
-            attack: nonzero(attack),
-            decay: nonzero(decay),
-            sustain: normal(sustain),
-            release: nonzero(release),
-            initial: normal(initial),
-            peak: normal(peak),
-            end: normal(end),
+            attack: attack.nonzero(),
+            decay: decay.nonzero(),
+            sustain: sustain.normal(),
+            release: release.nonzero(),
+            initial: initial.normal(),
+            peak: peak.normal(),
+            end: end.normal(),
             state: EnvelopeState::Ready,
             slope: zero,
             value: initial,
@@ -61,7 +61,7 @@ where
 
 impl<F> Envelope<F> for Adsr<F>
 where
-    F: Float + Debug,
+    F: Num + Signed + PartialOrd + Debug + NonZero + Normal + Copy,
 {
     fn reset(&mut self) {
         self.slope = Zero::zero();
@@ -82,7 +82,7 @@ where
     }
 
     fn set_attack(&mut self, value: F) {
-        self.attack = nonzero(value);
+        self.attack = value.nonzero();
         self.attack_slope = self.calc_attack_slope();
         if let EnvelopeState::Attack = self.state {
             self.slope = self.attack_slope;
@@ -90,7 +90,7 @@ where
     }
 
     fn set_decay(&mut self, value: F) {
-        self.decay = nonzero(value);
+        self.decay = value.nonzero();
         self.decay_slope = self.calc_decay_slope();
         if let EnvelopeState::Decay = self.state {
             self.slope = self.decay_slope;
@@ -98,11 +98,11 @@ where
     }
 
     fn set_sustain(&mut self, value: F) {
-        self.sustain = normal(value);
+        self.sustain = value.normal();
     }
 
     fn set_release(&mut self, value: F) {
-        self.release = nonzero(value);
+        self.release = value.nonzero();
         self.release_slope = self.calc_release_slope();
         if let EnvelopeState::Release = self.state {
             self.slope = self.release_slope;
@@ -110,21 +110,21 @@ where
     }
 
     fn set_initial(&mut self, value: F) {
-        self.initial = normal(value);
+        self.initial = value.normal();
         if let EnvelopeState::Attack = self.state {
             self.attack_slope = self.calc_attack_slope();
         }
     }
 
     fn set_peak(&mut self, value: F) {
-        self.peak = normal(value);
+        self.peak = value.normal();
         if let EnvelopeState::Decay = self.state {
             self.decay_slope = self.calc_decay_slope();
         }
     }
 
     fn set_end(&mut self, value: F) {
-        self.end = normal(value);
+        self.end = value.normal();
         if let EnvelopeState::Release = self.state {
             self.release_slope = self.calc_release_slope();
         }
@@ -137,11 +137,19 @@ where
             false
         }
     }
+
+    fn is_ready(&self) -> bool {
+        if let EnvelopeState::Ready = self.state {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl<F> Iterator for Adsr<F>
 where
-    F: Float,
+    F: Num + Signed + PartialOrd + NonZero + Normal + Copy,
     Self: Envelope<F>,
 {
     type Item = F;

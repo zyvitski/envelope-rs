@@ -1,5 +1,6 @@
-use num::Float;
+use num::{Num, Signed};
 use std::fmt::Debug;
+use util::{NonZero, Normal};
 
 #[derive(Debug)]
 pub enum EnvelopeState {
@@ -13,7 +14,7 @@ pub enum EnvelopeState {
 
 pub trait Envelope<F>
 where
-    F: Float,
+    F: Num + Signed + PartialOrd + NonZero + Normal + Copy,
     Self: Iterator<Item = F> + Debug,
 {
     fn reset(&mut self);
@@ -37,4 +38,6 @@ where
     fn set_end(&mut self, value: F);
 
     fn is_done(&self) -> bool;
+
+    fn is_ready(&self) -> bool;
 }
