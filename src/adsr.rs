@@ -3,6 +3,8 @@ use util::{NonZero, Normal};
 use num::{Num, Signed, Zero};
 use std::fmt::Debug;
 
+
+///A generic implementation of the `Envelope` trait
 #[derive(Debug)]
 pub struct Adsr<F>
 where
@@ -28,6 +30,7 @@ impl<F> Adsr<F>
 where
     F: Num + Signed + PartialOrd + NonZero + Normal + Copy,
 {
+    ///Create a new `Adsr`
     pub fn new(attack: F, decay: F, sustain: F, release: F, initial: F, peak: F, end: F) -> Self {
         let zero: F = Zero::zero();
         Adsr {
