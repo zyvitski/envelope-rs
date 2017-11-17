@@ -29,3 +29,7 @@ fn can_inst_with_i32() {
 fn can_inst_with_i64() {
     let evn: Adsr<i64> = Adsr::new(0, 0, 0, 0, 0, 0, 0);
 }
+#[test]
+fn can_inst_with_isize() {
+    let evn: Adsr<isize> = Adsr::new(0, 0, 0, 0, 0, 0, 0);
+}
