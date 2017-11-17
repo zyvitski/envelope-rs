@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 extern crate num;
 mod envelope;
 mod adsr;
